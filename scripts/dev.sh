@@ -38,6 +38,12 @@ echo ""
 # ─── Kill any processes on our ports ────────────────────────────────────────
 echo -e "${YELLOW}Clearing ports $SERVER_PORT, $ENGINE_PORT, $CLIENT_PORT...${NC}"
 npx kill-port $SERVER_PORT $ENGINE_PORT $CLIENT_PORT 2>/dev/null || true
+
+# ─── Clear Vite dependency cache ──────────────────────────────────────────
+echo -e "${YELLOW}Clearing Vite cache...${NC}"
+rm -rf "$ROOT_DIR/packages/client/node_modules/.vite" \
+       "$ROOT_DIR/packages/athena-server/node_modules/.vite" \
+       "$ROOT_DIR/packages/athena-engine/node_modules/.vite"
 echo ""
 
 # ─── Cleanup on exit ────────────────────────────────────────────────────────
