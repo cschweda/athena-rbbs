@@ -9,12 +9,6 @@ export const athenaConfigSchema = z.object({
     requireApproval: z.boolean().default(true),
   }),
 
-  supabase: z.object({
-    url: z.string().url(),
-    serviceRoleKey: z.string().min(1),
-    anonKey: z.string().min(1),
-  }),
-
   admin: z.object({
     networkSysOp: z.string().min(1),
     contactEmail: z.string().email().optional(),

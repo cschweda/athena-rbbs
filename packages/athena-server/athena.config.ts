@@ -9,12 +9,6 @@ export default defineAthenaConfig({
     requireApproval: true,
   },
 
-  supabase: {
-    url: process.env.SUPABASE_URL || 'https://placeholder.supabase.co',
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder',
-    anonKey: process.env.SUPABASE_ANON_KEY || 'placeholder',
-  },
-
   admin: {
     networkSysOp: process.env.NETWORK_SYSOP || 'ChrisR',
     contactEmail: process.env.CONTACT_EMAIL,

@@ -203,7 +203,7 @@ For dev, all three run on localhost with different ports. The `pnpm dev` script 
 
 ### Athena Server (port 3000)
 
-The central registry. In Phase 1 it's a stub returning a hardcoded board list. Phase 2 adds Supabase (Postgres, Auth, Realtime), an admin dashboard, board provisioning with API keys, and heartbeat monitoring.
+The central registry. In Phase 1 it's a stub returning a hardcoded board list. Phase 2 adds an admin dashboard, board provisioning with API keys, and heartbeat monitoring.
 
 **Endpoints:**
 - `GET /api/boards` — Board directory (public, no auth)
@@ -356,11 +356,6 @@ export default defineAthenaConfig({
     heartbeatTimeout: 180_000,        // Mark board offline after this
     requireApproval: true,            // Approval gate for new boards
   },
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    anonKey: process.env.SUPABASE_ANON_KEY,
-  },
   admin: {
     networkSysOp: 'ChrisR',
     contactEmail: 'admin@athena-rbbs.net',
@@ -368,7 +363,7 @@ export default defineAthenaConfig({
 });
 ```
 
-Secrets (Supabase keys, passwords) are always environment variables, never hardcoded.
+Secrets (passwords, API keys) are always environment variables, never hardcoded.
 
 ### Per-board config: `board.json`
 
