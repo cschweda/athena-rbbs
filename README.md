@@ -113,6 +113,20 @@ docker compose up -d    # build + start (first run builds the image)
 
 Open http://localhost:3002 in your browser. To stop: `docker compose down`. To rebuild after code changes: `docker compose build && docker compose up -d`.
 
+### Pulling production data into dev
+
+The SQLite database is git-ignored (it contains user passwords). Dev and prod databases are independent — a fresh clone starts with an empty database that's auto-created on first boot.
+
+When you need to develop against live data (debugging a user issue, testing with real content), pull the production database on-demand:
+
+```bash
+export VPS_HOST=root@your-vps-ip    # or set in your shell profile
+./scripts/pull-prod-db.sh
+pnpm dev
+```
+
+The script backs up your local database before overwriting, so you can always revert. Code deploys (`git pull` + rebuild) never touch the production database — schema and data are decoupled.
+
 ---
 
 The native dev launcher starts all three services, waits for them to be ready, runs a handshake check to verify they can communicate, then prints a dashboard:
