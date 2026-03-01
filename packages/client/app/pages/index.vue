@@ -2,14 +2,12 @@
 import type { BoardPublicInfo, BoardListResponse } from '@athena/types';
 import { hostnameToNodeAddress } from '~/composables/useNodeAddress';
 
-const config = useRuntimeConfig();
-
 const selectedBoard = ref<BoardPublicInfo | null>(null);
 const showConnection = ref(false);
 const showTerminal = ref(false);
 
 const { data: boardData, status, error: fetchError } = await useFetch<BoardListResponse>(
-  `${config.public.serverUrl}/api/boards`,
+  '/api/boards',
 );
 
 const boards = computed(() => boardData.value?.boards ?? []);
