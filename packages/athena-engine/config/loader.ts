@@ -52,23 +52,29 @@ export function loadBoardConfig(modulePath: string): BoardConfig {
 
 export function loadScreen(modulePath: string, screenPath: string): string {
   const resolved = resolve(modulePath);
-  const fullPath = join(resolved, screenPath);
+  const fullPath = resolve(resolved, screenPath);
 
-  // Security: ensure screen path stays within module directory
-  const rel = relative(resolved, fullPath);
-  if (rel.startsWith('..') || resolve(fullPath) !== fullPath.replace(/\/+$/, '')) {
-    // Try safe resolution
-    const safePath = resolve(resolved, screenPath);
-    const safeRel = relative(resolved, safePath);
-    if (safeRel.startsWith('..')) {
-      return `\r\n  [Screen not available]\r\n`;
-    }
+  // Security: ensure resolved path stays within the module directory
+  if (!fullPath.startsWith(resolved + '/') && fullPath !== resolved) {
+    return `\r\n  [Screen not available]\r\n`;
   }
 
   try {
     return readFileSync(fullPath, 'utf-8');
   } catch {
-    // Fallback for missing screen files
     return `\r\n  [Screen not available]\r\n`;
   }
+}
+
+/**
+ * Replace template variables in screen text with values from board config.
+ * Supported: {{board.name}}, {{board.tagline}}, {{board.sysop}}, {{board.maxUsers}}, etc.
+ */
+export function interpolateScreen(text: string, config: BoardConfig): string {
+  return text
+    .replace(/\{\{board\.name\}\}/g, config.board.name)
+    .replace(/\{\{board\.tagline\}\}/g, config.board.tagline)
+    .replace(/\{\{board\.sysop\}\}/g, config.board.sysop)
+    .replace(/\{\{board\.theme\}\}/g, config.board.theme ?? '')
+    .replace(/\{\{board\.maxUsers\}\}/g, String(config.board.maxUsers));
 }

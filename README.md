@@ -215,11 +215,11 @@ The BBS itself. Loads a board module (`board.json` + screens) at startup, create
 The browser frontend. Modern graphical UI (Nuxt UI) for the board directory. Retro terminal mode for BBS sessions.
 
 **Pages:**
-- `/` — Board directory with cards showing name, tagline, SysOp, users, status, theme, and a generated "phone number"
+- `/` — Board directory with cards showing name, tagline, SysOp, users, status, theme, and a generated node address
 
 **Components:**
 - `BoardDirectory` — Card grid, fetches from Server, caches in sessionStorage
-- `ConnectionSequence` — Three-phase animated panel (Dialing → Connecting → Connected)
+- `ConnectionSequence` — Three-phase animated panel (Connecting → Negotiating → Connected)
 - `Terminal` — Monospace display with hidden input, blinking cursor, session timer status bar, warning overlays
 
 ---
@@ -275,6 +275,27 @@ boards/golfsucks/
 ```
 
 The engine validates `board.json` with Zod at startup. Invalid config produces clear error messages and refuses to boot.
+
+### Screen template variables
+
+Screen files (`.ans`) support template variables that are replaced with values from `board.json` at load time. This ensures `board.json` remains the single source of truth:
+
+| Variable | Replaced with |
+|----------|---------------|
+| `{{board.name}}` | Board name from `board.json` |
+| `{{board.tagline}}` | Board tagline |
+| `{{board.sysop}}` | SysOp display name |
+| `{{board.theme}}` | Theme tag |
+| `{{board.maxUsers}}` | Max concurrent users |
+
+Example screen file:
+```
+    ☠ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ☠
+    ┃     {{board.name}}  RBBS             ┃
+    ┃     "{{board.tagline}}"              ┃
+    ┃     SysOp: {{board.sysop}}           ┃
+    ☠ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ☠
+```
 
 ### Creating a new board
 
@@ -336,7 +357,11 @@ All security hardening is built in from Phase 1:
 
 | Protection | Details |
 |-----------|---------|
-| Origin validation | `ALLOWED_ORIGINS` env var, reject all if empty |
+| Origin validation | `ALLOWED_ORIGINS` env var, rejects missing and unknown origins |
+| CORS | Restricted to configured origins (no wildcard `*`) |
+| Proxy trust | `X-Forwarded-For` only read when `TRUST_PROXY=true` |
+| Security headers | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` |
+| Reserved handles | Blocks SYSOP, ADMIN, ROOT, SYSTEM, etc. from registration |
 | Auth timeout | 30 seconds to login or disconnected |
 | Message size | 8KB max per WebSocket message |
 | Login rate limit | 5 attempts/min/IP, 30-second tar pit on 6th |
@@ -350,6 +375,10 @@ All security hardening is built in from Phase 1:
 | Ban system | Temp bans (1h-365d) + permanent, with reason display |
 | Session limits | Time limit + cooldown, SysOp exempt |
 | JSON safety | All parsing in try/catch, unknown types silently ignored |
+| SQLite permissions | Database files set to 0600 (owner-only) |
+| WAL management | Auto-checkpoint and busy timeout configured |
+| Reconnect pool | Bounded to 100 entries, sensitive data cleared |
+| Health endpoints | No internal paths or config exposed |
 
 ---
 
@@ -423,58 +452,157 @@ Create `/home/forge/athena/.env`:
 MODULE_PATH=/home/forge/athena/boards/golfsucks
 SYSOP_HANDLE=ChrisR
 SYSOP_PASSWORD=<strong-password>
-REGISTRY_URL=https://athena-rbbs.net
-REGISTRY_API_KEY=<key-from-provisioning>
 ALLOWED_ORIGINS=https://athena-rbbs.net
+TRUST_PROXY=true
 ```
 
 **Server (.env):**
 ```bash
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<key>
-SUPABASE_ANON_KEY=<key>
-NETWORK_SYSOP=ChrisR
-CONTACT_EMAIL=admin@athena-rbbs.net
+MODULE_PATH=/home/forge/athena/boards/golfsucks
+ENGINE_PORT=3001
+ENGINE_PUBLIC_HOST=golfsucks.athena-rbbs.net
+ALLOWED_ORIGINS=https://athena-rbbs.net
 ```
+
+| Variable | Service | Required | Description |
+|----------|---------|----------|-------------|
+| `MODULE_PATH` | Engine, Server | Yes | Absolute path to the board module directory |
+| `SYSOP_HANDLE` | Engine | Yes | SysOp username (created on first boot) |
+| `SYSOP_PASSWORD` | Engine | Yes | SysOp password (bcrypt-hashed at startup) |
+| `ALLOWED_ORIGINS` | Engine, Server | Yes | Comma-separated origin allowlist for CORS + WebSocket |
+| `TRUST_PROXY` | Engine | Production | Set `true` behind nginx so rate limiting uses real client IPs |
+| `ENGINE_PORT` | Server | Yes | Port the engine runs on (for board directory API) |
+| `ENGINE_PUBLIC_HOST` | Server | Production | Public hostname for the engine (replaces `localhost` in board directory) |
 
 ### 5. Start with PM2
 
-```bash
-cd /home/forge/athena/packages/athena-engine
+PM2 keeps your services running across reboots, handles log rotation, and provides zero-downtime reloads.
 
-# Start the engine (or athena-server for the registry droplet)
-pm2 start .output/server/index.mjs \
-  --name athena-engine \
-  --env-file /home/forge/athena/.env
+**Create an ecosystem file** at `/home/forge/athena/ecosystem.config.cjs`:
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'athena-server',
+      cwd: '/home/forge/athena/packages/athena-server',
+      script: '.output/server/index.mjs',
+      env: {
+        PORT: 3000,
+        MODULE_PATH: '/home/forge/athena/boards/golfsucks',
+        ENGINE_PORT: '3001',
+        ENGINE_PUBLIC_HOST: 'golfsucks.athena-rbbs.net',
+        ALLOWED_ORIGINS: 'https://athena-rbbs.net',
+      },
+    },
+    {
+      name: 'athena-engine',
+      cwd: '/home/forge/athena/packages/athena-engine',
+      script: '.output/server/index.mjs',
+      env: {
+        PORT: 3001,
+        MODULE_PATH: '/home/forge/athena/boards/golfsucks',
+        SYSOP_HANDLE: 'ChrisR',
+        SYSOP_PASSWORD: '<strong-password>',
+        ALLOWED_ORIGINS: 'https://athena-rbbs.net',
+        TRUST_PROXY: 'true',
+      },
+    },
+    {
+      name: 'athena-client',
+      cwd: '/home/forge/athena/packages/client',
+      script: '.output/server/index.mjs',
+      env: {
+        PORT: 3002,
+        NUXT_PUBLIC_SERVER_URL: 'https://athena-rbbs.net',
+      },
+    },
+  ],
+};
+```
+
+Start all services:
+
+```bash
+cd /home/forge/athena
+
+# Start everything
+pm2 start ecosystem.config.cjs
 
 # Persist across reboots
 pm2 save
 pm2 startup
 ```
 
-### 6. Create a site in Forge (nginx reverse proxy)
+Or start services individually:
+
+```bash
+cd /home/forge/athena/packages/athena-engine
+pm2 start .output/server/index.mjs --name athena-engine
+```
+
+### 6. Create sites in Forge (nginx reverse proxy)
+
+Each service needs a Forge site with an nginx reverse proxy. Forge creates the server block — you just edit the `location /` block.
 
 1. In Forge, select your server → **Sites** → **New Site**
-2. Domain: `golfsucks.athena-rbbs.net` (or `athena-rbbs.net` for the server)
-3. Project type: **Static HTML** (we just need the nginx config)
-4. After the site is created, go to the site → **Nginx Configuration**
-5. Replace the `location /` block with a reverse proxy:
+2. Domain: your subdomain (e.g., `golfsucks.athena-rbbs.net`)
+3. Project type: **Static HTML** (we only need nginx config)
+4. After creation, go to the site → **Nginx Configuration**
+5. Replace the `location /` block:
+
+**Client site** (`athena-rbbs.net` — what users visit):
 
 ```nginx
 location / {
-    proxy_pass http://127.0.0.1:3001;  # 3000 for server, 3001 for engine, 3002 for client
+    proxy_pass http://127.0.0.1:3002;
     proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_read_timeout 86400;           # Keep WebSocket connections alive (24h)
 }
 ```
 
-The `Upgrade` and `Connection` headers are required for WebSocket connections to work through nginx.
+**Engine site** (`golfsucks.athena-rbbs.net` — WebSocket BBS):
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+
+    # Required for WebSocket
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Keep WebSocket connections alive (24 hours)
+    proxy_read_timeout 86400;
+    proxy_send_timeout 86400;
+}
+```
+
+**Server/registry site** (`api.athena-rbbs.net` or path-based):
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+**Key nginx details:**
+- `Upgrade` + `Connection` headers are **required** for WebSocket — without them, BBS connections will fail
+- `proxy_read_timeout 86400` keeps long WebSocket sessions alive (default is 60s which kills BBS sessions)
+- `TRUST_PROXY=true` on the engine tells it to read `X-Forwarded-For` for real client IPs (rate limiting, logging)
 
 ### 7. Enable SSL (Let's Encrypt)
 
@@ -482,46 +610,78 @@ The `Upgrade` and `Connection` headers are required for WebSocket connections to
 2. Select **Let's Encrypt**
 3. Click **Obtain Certificate**
 
-Forge handles certificate provisioning and automatic renewal. No Caddy, no certbot, no cron jobs.
+Forge handles certificate provisioning and automatic renewal. No certbot, no cron jobs.
 
 ### 8. Multiple boards on one server
 
-For smaller deployments, you can run multiple boards on a single Forge server:
+For smaller deployments, run multiple boards on a single Forge server:
 
 1. Create one Forge server
 2. Add multiple sites (one per board subdomain)
-3. Run each engine on a different port:
+3. Add entries to `ecosystem.config.cjs`:
 
-```bash
-pm2 start .output/server/index.mjs --name golfsucks -- --port 3001
-pm2 start .output/server/index.mjs --name starport  -- --port 3002
+```javascript
+{
+  name: 'golfsucks',
+  cwd: '/home/forge/athena/packages/athena-engine',
+  script: '.output/server/index.mjs',
+  env: {
+    PORT: 3001,
+    MODULE_PATH: '/home/forge/athena/boards/golfsucks',
+    SYSOP_HANDLE: 'ChrisR',
+    SYSOP_PASSWORD: '<password>',
+    ALLOWED_ORIGINS: 'https://athena-rbbs.net',
+    TRUST_PROXY: 'true',
+  },
+},
+{
+  name: 'starport',
+  cwd: '/home/forge/athena/packages/athena-engine',
+  script: '.output/server/index.mjs',
+  env: {
+    PORT: 3003,
+    MODULE_PATH: '/home/forge/athena/boards/starport',
+    SYSOP_HANDLE: 'Nova',
+    SYSOP_PASSWORD: '<password>',
+    ALLOWED_ORIGINS: 'https://athena-rbbs.net',
+    TRUST_PROXY: 'true',
+  },
+},
 ```
 
 Point each site's nginx config to the correct port.
 
-### 9. Forge deployment script (optional)
+### 9. Forge deployment script
 
-If you connect a Git repo to your Forge site, you can set a deployment script that runs on push:
+Connect your Git repo to the Forge site, then set a deployment script under **Deployments**:
 
 ```bash
 cd /home/forge/athena
 git pull origin main
 pnpm install
-cd packages/athena-engine
-pnpm build
-pm2 restart athena-engine
+
+# Build whichever packages changed
+cd packages/athena-engine && pnpm build
+cd ../athena-server && pnpm build
+cd ../client && pnpm build
+
+# Restart all services
+pm2 restart ecosystem.config.cjs
 ```
 
-### PM2 management cheat sheet
+### PM2 cheat sheet
 
 ```bash
-pm2 list                    # Show all processes
-pm2 restart athena-engine   # Restart
-pm2 stop athena-engine      # Stop
-pm2 delete athena-engine    # Remove from PM2
-pm2 logs athena-engine      # Stream logs
-pm2 monit                   # CPU/memory dashboard
-pm2 reload athena-engine    # Zero-downtime reload
+pm2 list                      # Show all processes
+pm2 restart athena-engine      # Restart one service
+pm2 restart ecosystem.config.cjs  # Restart all services
+pm2 stop athena-engine         # Stop
+pm2 delete athena-engine       # Remove from PM2
+pm2 logs athena-engine         # Stream logs
+pm2 logs athena-engine --lines 100  # Last 100 lines
+pm2 monit                      # CPU/memory dashboard
+pm2 reload athena-engine       # Zero-downtime reload
+pm2 flush                      # Clear log files
 ```
 
 ### Backups
@@ -529,7 +689,7 @@ pm2 reload athena-engine    # Zero-downtime reload
 ```bash
 # Nightly SQLite backup (add to Forge scheduler or crontab)
 0 3 * * * sqlite3 /home/forge/athena/boards/golfsucks/data/board.db ".backup /home/forge/athena/boards/golfsucks/data/board-backup.db"
-    ```
+```
 
 ---
 

@@ -4,8 +4,8 @@
 
   "board": {
     "name": "Golf Sucks",
-    "tagline": "Abandon all bogeys",
-    "sysop": "ChrisR",
+    "tagline": "Golf really does suck.",
+    "sysop": "bennyProfane",
     "theme": "pirate",
     "maxUsers": 10,
     "maxSessionMinutes": 30,

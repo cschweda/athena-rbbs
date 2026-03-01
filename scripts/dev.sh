@@ -17,6 +17,7 @@ ENGINE_PORT=3001
 CLIENT_PORT=3002
 
 export MODULE_PATH="$ROOT_DIR/boards/golfsucks"
+export ENGINE_PORT="$ENGINE_PORT"
 export SYSOP_HANDLE="ChrisR"
 export SYSOP_PASSWORD="test123"
 export ALLOWED_ORIGINS="http://localhost:$CLIENT_PORT"

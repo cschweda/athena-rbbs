@@ -14,4 +14,16 @@ export default defineNuxtConfig({
       serverUrl: 'http://localhost:3000',
     },
   },
+
+  nitro: {
+    routeRules: {
+      '/**': {
+        headers: {
+          'X-Frame-Options': 'DENY',
+          'X-Content-Type-Options': 'nosniff',
+          'Referrer-Policy': 'strict-origin-when-cross-origin',
+        },
+      },
+    },
+  },
 });

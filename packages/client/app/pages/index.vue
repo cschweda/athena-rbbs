@@ -1,45 +1,24 @@
 <script setup lang="ts">
 import type { BoardPublicInfo, BoardListResponse } from '@athena/types';
-import { hostnameToPhoneNumber } from '~/composables/usePhoneNumber';
+import { hostnameToNodeAddress } from '~/composables/useNodeAddress';
 
 const config = useRuntimeConfig();
 
-const boards = ref<BoardPublicInfo[]>([]);
-const loading = ref(true);
-const registryError = ref(false);
-const serverStatus = ref<'restarting' | 'online' | 'offline'>('restarting');
 const selectedBoard = ref<BoardPublicInfo | null>(null);
 const showConnection = ref(false);
 const showTerminal = ref(false);
 
-async function fetchBoards() {
-  loading.value = true;
-  registryError.value = false;
+const { data: boardData, status, error: fetchError } = await useFetch<BoardListResponse>(
+  `${config.public.serverUrl}/api/boards`,
+);
 
-  try {
-    const data = await $fetch<BoardListResponse>(`${config.public.serverUrl}/api/boards`);
-    boards.value = data.boards;
-    serverStatus.value = 'online';
-    // Cache in sessionStorage
-    if (import.meta.client) {
-      sessionStorage.setItem('athena-boards', JSON.stringify(data.boards));
-    }
-  } catch {
-    registryError.value = true;
-    serverStatus.value = 'offline';
-    // Try cached
-    if (import.meta.client) {
-      const cached = sessionStorage.getItem('athena-boards');
-      if (cached) {
-        try {
-          boards.value = JSON.parse(cached);
-        } catch { /* */ }
-      }
-    }
-  } finally {
-    loading.value = false;
-  }
-}
+const boards = computed(() => boardData.value?.boards ?? []);
+const loading = computed(() => status.value === 'pending');
+const registryError = computed(() => !!fetchError.value);
+const serverStatus = computed<'restarting' | 'online' | 'offline'>(() => {
+  if (status.value === 'pending') return 'restarting';
+  return fetchError.value ? 'offline' : 'online';
+});
 
 function connectToBoard(board: BoardPublicInfo) {
   selectedBoard.value = board;
@@ -63,13 +42,6 @@ function onDisconnected() {
   selectedBoard.value = null;
 }
 
-function statusColor(status: string): string {
-  return status === 'online' ? 'success' : 'neutral';
-}
-
-onMounted(() => {
-  fetchBoards();
-});
 </script>
 
 <template>
@@ -166,7 +138,7 @@ onMounted(() => {
             </div>
             <div class="flex justify-between">
               <span>Users: {{ board.currentUsers }}/{{ board.maxUsers }}</span>
-              <span>{{ hostnameToPhoneNumber(board.host) }}</span>
+              <span>{{ hostnameToNodeAddress(board.host) }}</span>
             </div>
           </div>
 

@@ -1,3 +1,4 @@
+import { chmodSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
@@ -11,6 +12,11 @@ export function initDatabase(dbPath: string, config: BoardConfig): typeof db {
   sqlite = new Database(dbPath);
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
+  sqlite.pragma('wal_autocheckpoint = 1000');
+  sqlite.pragma('busy_timeout = 5000');
+
+  // Restrict database file permissions (owner read/write only)
+  try { chmodSync(dbPath, 0o600); } catch { /* may fail on some OS */ }
 
   db = drizzle(sqlite, { schema });
 

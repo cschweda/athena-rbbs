@@ -98,19 +98,12 @@ function handleMessage(msg: WSMessage) {
       break;
     }
     case 'screen.display': {
-      const payload = msg.payload as { content: string; clear?: boolean; speed?: number };
-      if (payload.clear) {
-        terminalContent.value = '';
-      }
+      const payload = msg.payload as { content: string; speed?: number };
       if (payload.speed && payload.speed > 0) {
         typeText(payload.content, payload.speed);
       } else {
         appendText(payload.content);
       }
-      break;
-    }
-    case 'screen.clear': {
-      terminalContent.value = '';
       break;
     }
     case 'command.prompt': {
@@ -262,7 +255,7 @@ function focusInput() {
     <div class="flex-1 relative overflow-hidden">
       <pre
         ref="terminalRef"
-        class="h-full overflow-y-auto p-4 font-mono text-sm text-green-400 whitespace-pre-wrap leading-relaxed"
+        class="h-full overflow-y-auto p-4 md:p-6 lg:p-8 font-mono text-sm md:text-base text-green-400 whitespace-pre-wrap leading-relaxed"
         style="max-height: calc(100vh - 40px);"
       >{{ terminalContent }}<span v-if="showInput">{{ inputPrompt }}<span v-if="inputMask">{{ '*'.repeat(inputValue.length) }}</span><span v-else>{{ inputValue }}</span><span :class="{ 'opacity-0': !cursorVisible }" class="text-amber-400">&#9608;</span></span><span v-else><span :class="{ 'opacity-0': !cursorVisible }" class="text-amber-400">&#9608;</span></span></pre>
 

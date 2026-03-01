@@ -4,6 +4,12 @@ export const HANDLE_REGEX = /^[a-zA-Z0-9_]{3,16}$/;
 export const HANDLE_MIN_LENGTH = 3;
 export const HANDLE_MAX_LENGTH = 16;
 
+const RESERVED_HANDLES = new Set([
+  'NEW', 'ADMIN', 'SYSOP', 'SYSTEM', 'ROOT', 'OPERATOR',
+  'MODERATOR', 'MOD', 'STAFF', 'SUPPORT', 'HELP', 'INFO',
+  'ANONYMOUS', 'GUEST', 'TEST', 'NULL', 'UNDEFINED',
+]);
+
 // ─── Password ───────────────────────────────────────────────────────────────
 
 export const MIN_PASSWORD_LENGTH = 6;
@@ -41,6 +47,9 @@ export function validateHandle(handle: string): { valid: boolean; error?: string
   }
   if (!HANDLE_REGEX.test(handle)) {
     return { valid: false, error: 'Handle must be 3-16 characters: letters, numbers, underscore.' };
+  }
+  if (RESERVED_HANDLES.has(handle.toUpperCase())) {
+    return { valid: false, error: 'That handle is reserved.' };
   }
   return { valid: true };
 }

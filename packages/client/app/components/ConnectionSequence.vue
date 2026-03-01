@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { BoardPublicInfo, WSMessage } from '@athena/types';
-import { hostnameToPhoneNumber } from '~/composables/usePhoneNumber';
+import { hostnameToNodeAddress } from '~/composables/useNodeAddress';
 
 const props = defineProps<{
   board: BoardPublicInfo;
@@ -16,10 +16,10 @@ const statusLines = ref<string[]>([]);
 const progress = ref(0);
 const failMessage = ref('');
 
-const phoneNumber = computed(() => hostnameToPhoneNumber(props.board.host));
+const nodeAddress = computed(() => hostnameToNodeAddress(props.board.host));
 
 const statusMessages = [
-  'ATDT %PHONE%...',
+  'CONNECT %NODE%...',
   'CARRIER DETECT',
   'NEGOTIATING PROTOCOL...',
   'ESTABLISHING SESSION...',
@@ -28,9 +28,9 @@ const statusMessages = [
 
 onMounted(async () => {
   try {
-    // Phase 1: Dialing (1.5s)
+    // Phase 1: Connecting (1.5s)
     phase.value = 'dialing';
-    statusLines.value = [`ATDT ${phoneNumber.value}...`];
+    statusLines.value = [`CONNECT ${nodeAddress.value}...`];
     await delay(1500);
 
     // Phase 2: Connecting (2-3s)
@@ -39,7 +39,7 @@ onMounted(async () => {
 
     // Show status lines with delays
     for (let i = 0; i < statusMessages.length; i++) {
-      const line = statusMessages[i].replace('%PHONE%', phoneNumber.value);
+      const line = statusMessages[i].replace('%NODE%', nodeAddress.value);
       statusLines.value.push(line);
       progress.value = ((i + 1) / statusMessages.length) * 80;
       await delay(400 + Math.random() * 200);
@@ -127,11 +127,11 @@ function delay(ms: number): Promise<void> {
         <div class="text-gray-600 text-xs mt-1">{{ board.name }}</div>
       </div>
 
-      <!-- Dialing phase -->
+      <!-- Connecting phase -->
       <div v-if="phase === 'dialing'" class="text-center">
-        <div class="text-green-400 text-sm mb-2">DIALING...</div>
+        <div class="text-green-400 text-sm mb-2">CONNECTING...</div>
         <div class="text-amber-300 text-lg mb-2">{{ board.name }}</div>
-        <div class="text-gray-400 text-sm mb-4">{{ phoneNumber }}</div>
+        <div class="text-gray-400 text-sm mb-4">{{ nodeAddress }}</div>
         <div class="text-green-500 animate-pulse text-2xl">&#9679;</div>
       </div>
 

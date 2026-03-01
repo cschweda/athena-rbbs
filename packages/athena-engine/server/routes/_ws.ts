@@ -9,7 +9,7 @@ import {
   WS_LIMITS,
 } from '@athena/types';
 import { validateHandle, validatePassword } from '@athena/types';
-import { loadBoardConfig, loadScreen } from '../../config/loader';
+import { loadBoardConfig, loadScreen, interpolateScreen } from '../../config/loader';
 import { initDatabase, getDb, getRawDb } from '../database/index';
 import { users } from '../database/schema';
 import type { PeerData, UserRecord, AreaName } from '../types';
@@ -27,7 +27,8 @@ const tarPitIPs = new Map<string, number>();
 let boardConfig: BoardConfig;
 let modulePath: string;
 let allowedOrigins: string[] = [];
-let initialized = false;
+let dbInitialized = false;
+let timersStarted = false;
 
 // ─── Screens cache ──────────────────────────────────────────────────────────
 
@@ -36,26 +37,28 @@ const screens: Record<string, string> = {};
 // ─── Initialize engine ─────────────────────────────────────────────────────
 
 function ensureInitialized(): void {
-  if (initialized) return;
-
   modulePath = process.env.MODULE_PATH || './board';
   const resolvedPath = resolve(modulePath);
 
+  // Always re-read board.json and screens so edits are picked up on restart
   log('startup', { modulePath: resolvedPath });
 
   boardConfig = loadBoardConfig(modulePath);
   log('startup', { boardName: boardConfig.board.name, maxUsers: boardConfig.board.maxUsers });
 
-  // Initialize database
-  const dbPath = join(resolvedPath, 'data', 'board.db');
-  initDatabase(dbPath, boardConfig);
-  log('startup', { database: dbPath });
+  // Initialize database only once
+  if (!dbInitialized) {
+    const dbPath = join(resolvedPath, 'data', 'board.db');
+    initDatabase(dbPath, boardConfig);
+    log('startup', { database: dbPath });
+    dbInitialized = true;
+  }
 
-  // Load screens
-  screens.splash = loadScreen(resolvedPath, boardConfig.screens.splash);
-  screens.goodbye = loadScreen(resolvedPath, boardConfig.screens.goodbye);
-  screens.newuser = loadScreen(resolvedPath, boardConfig.screens.newuser);
-  screens.menu = loadScreen(resolvedPath, boardConfig.screens.menu);
+  // Always reload screens, interpolating board.json values
+  screens.splash = interpolateScreen(loadScreen(resolvedPath, boardConfig.screens.splash), boardConfig);
+  screens.goodbye = interpolateScreen(loadScreen(resolvedPath, boardConfig.screens.goodbye), boardConfig);
+  screens.newuser = interpolateScreen(loadScreen(resolvedPath, boardConfig.screens.newuser), boardConfig);
+  screens.menu = interpolateScreen(loadScreen(resolvedPath, boardConfig.screens.menu), boardConfig);
 
   // Parse allowed origins
   allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
@@ -63,30 +66,34 @@ function ensureInitialized(): void {
   // Bootstrap SysOp
   bootstrapSysOp();
 
-  // Reconnect pool cleanup (every 10s)
-  setInterval(() => {
-    const now = Date.now();
-    for (const [token, peer] of reconnectPool) {
-      if (now - peer.lastActivity > WS_LIMITS.RECONNECT_WINDOW_MS) {
-        reconnectPool.delete(token);
+  // Start cleanup timers only once
+  if (!timersStarted) {
+    // Reconnect pool cleanup (every 10s)
+    setInterval(() => {
+      const now = Date.now();
+      for (const [token, peer] of reconnectPool) {
+        if (now - peer.lastActivity > WS_LIMITS.RECONNECT_WINDOW_MS) {
+          reconnectPool.delete(token);
+        }
       }
-    }
-  }, 10_000);
+    }, 10_000);
 
-  // Connection attempts cleanup (every 60s)
-  setInterval(() => {
-    const now = Date.now();
-    for (const [ip, timestamps] of connectionAttempts) {
-      const recent = timestamps.filter((t) => now - t < 60_000);
-      if (recent.length === 0) {
-        connectionAttempts.delete(ip);
-      } else {
-        connectionAttempts.set(ip, recent);
+    // Connection attempts cleanup (every 60s)
+    setInterval(() => {
+      const now = Date.now();
+      for (const [ip, timestamps] of connectionAttempts) {
+        const recent = timestamps.filter((t) => now - t < 60_000);
+        if (recent.length === 0) {
+          connectionAttempts.delete(ip);
+        } else {
+          connectionAttempts.set(ip, recent);
+        }
       }
-    }
-  }, 60_000);
+    }, 60_000);
 
-  initialized = true;
+    timersStarted = true;
+  }
+
   log('startup', { status: 'ready', board: boardConfig.board.name });
 }
 
@@ -122,7 +129,8 @@ function generateToken(): string {
 function getIP(peer: any): string {
   try {
     const req = peer.request || peer.ctx?.request || peer.websocket?.request;
-    if (req) {
+    // Only trust X-Forwarded-For behind a reverse proxy
+    if (req && process.env.TRUST_PROXY === 'true') {
       const forwarded = req.headers?.get?.('x-forwarded-for') || req.headers?.['x-forwarded-for'];
       if (forwarded) return String(forwarded).split(',')[0].trim();
     }
@@ -300,17 +308,17 @@ function sendMainMenu(peerData: PeerData): void {
   }
 
   let menuText = screens.menu + '\n\n';
-  menuText += '  [F]orums  [M]ail  [C]hat  [G]ames\n';
-  menuText += '  [B]rowse  [L]inks [W]ho\'s Online\n';
-  menuText += '  [I]nfo    [P]age SysOp  [Q]uit\n';
+  menuText += '    [F]orums     [M]ail       [C]hat       [G]ames\n';
+  menuText += '    [B]rowse     [L]inks      [W]ho\'s Online\n';
+  menuText += '    [I]nfo       [P]age SysOp [Q]uit\n';
 
   if (peerData.user.access_level === 9) {
-    menuText += '  [S]ysOp Console\n';
+    menuText += '    [S]ysOp Console\n';
   }
 
-  menuText += `\n           Time remaining: ${timeDisplay}\n`;
+  menuText += `\n    Time remaining: ${timeDisplay}\n`;
 
-  sendScreen(peerData, menuText, true);
+  sendScreen(peerData, menuText);
   sendPrompt(peerData, 'Your choice: ', false, 1);
 }
 
@@ -518,12 +526,11 @@ function handleMainMenuInput(peerData: PeerData, text: string): void {
 
     case 'S': {
       if (peerData.user?.access_level === 9) {
-        sendScreen(peerData, '\n  Coming soon.\n');
-        sendMainMenu(peerData);
+        sendScreen(peerData, '\n  Coming soon.\n\n');
+        setTimeout(() => sendMainMenu(peerData), 800);
       } else {
-        // Don't reveal the command exists for non-SysOps
-        sendScreen(peerData, '\n  Unknown command.\n');
-        sendMainMenu(peerData);
+        sendScreen(peerData, '\n  Unknown command.\n\n');
+        setTimeout(() => sendMainMenu(peerData), 800);
       }
       break;
     }
@@ -537,14 +544,14 @@ function handleMainMenuInput(peerData: PeerData, text: string): void {
     case 'W':
     case 'I':
     case 'P': {
-      sendScreen(peerData, '\n  Coming soon.\n');
-      sendMainMenu(peerData);
+      sendScreen(peerData, '\n  Coming soon.\n\n');
+      setTimeout(() => sendMainMenu(peerData), 800);
       break;
     }
 
     default: {
-      sendScreen(peerData, '\n  Unknown command.\n');
-      sendMainMenu(peerData);
+      sendScreen(peerData, '\n  Unknown command.\n\n');
+      setTimeout(() => sendMainMenu(peerData), 800);
       break;
     }
   }
@@ -601,10 +608,10 @@ export default defineWebSocketHandler({
       return;
     }
 
-    // Origin check
+    // Origin check — reject missing or unknown origins when configured
     if (allowedOrigins.length > 0) {
       const origin = peer.request?.headers?.get?.('origin') || '';
-      if (origin && !allowedOrigins.includes(origin)) {
+      if (!origin || !allowedOrigins.includes(origin)) {
         log('connect', { ip, rejected: true, reason: 'origin' });
         try { peer.close(1008, 'Origin not allowed'); } catch { /* */ }
         return;
@@ -792,10 +799,13 @@ export default defineWebSocketHandler({
         'UPDATE caller_log SET disconnected_at = datetime(\'now\') WHERE user_id = ? AND disconnected_at IS NULL'
       ).run(peerData.user.id);
 
-      // Move to reconnect pool
-      if (peerData.reconnectToken) {
+      // Move to reconnect pool (clear sensitive data first)
+      if (peerData.reconnectToken && reconnectPool.size < 100) {
+        peerData.pendingPassword = null;
         peerData.lastActivity = Date.now();
-        reconnectPool.set(peerData.reconnectToken, { ...peerData });
+        const poolEntry = { ...peerData };
+        if (poolEntry.user) poolEntry.user = { ...poolEntry.user, password_hash: '' };
+        reconnectPool.set(peerData.reconnectToken, poolEntry);
       }
 
       log('disconnect', { handle: peerData.user.handle, ip: peerData.ip, sessionMinutes });
