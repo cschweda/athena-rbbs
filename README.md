@@ -283,7 +283,8 @@ boards/golfsucks/
     "theme": "pirate",              // freeform tag
     "maxUsers": 10,                 // 5-20 concurrent connections
     "maxSessionMinutes": 30,        // 15-120 minute session limit
-    "sessionCooldownMinutes": 60    // 0-1440 min between sessions (0 = disabled)
+    "sessionCooldownMinutes": 60,   // 0-1440 min between sessions (0 = disabled)
+    "debug": true                   // enable client-side console logging (default: true)
   },
   "screens": {
     "splash": "screens/splash.ans",
