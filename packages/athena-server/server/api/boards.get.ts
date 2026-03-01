@@ -27,6 +27,7 @@ export default defineEventHandler((): BoardListResponse => {
       currentUsers: 0,
       status: 'online',
       established: '2026-03-01',
+      debug: config.board.debug ?? true,
     });
   } catch {
     // Fallback if board.json can't be read

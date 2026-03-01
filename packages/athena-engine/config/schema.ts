@@ -53,6 +53,7 @@ export const boardConfigSchema = z.object({
     maxUsers: z.number().int().min(5).max(20).default(10),
     maxSessionMinutes: z.number().int().min(15).max(120).default(30),
     sessionCooldownMinutes: z.number().int().min(0).max(1440).default(60),
+    debug: z.boolean().default(true),
   }),
 
   screens: z.object({

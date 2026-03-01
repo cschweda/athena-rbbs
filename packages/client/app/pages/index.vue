@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { BoardPublicInfo, BoardListResponse } from '@athena/types';
 import { hostnameToNodeAddress } from '~/composables/useNodeAddress';
+import { useDebugLog, setDebugEnabled } from '~/composables/useDebugLog';
+
+const { debug } = useDebugLog('Directory');
 
 const selectedBoard = ref<BoardPublicInfo | null>(null);
 const showConnection = ref(false);
@@ -10,6 +13,11 @@ const { data: boardData, status, error: fetchError } = await useFetch<BoardListR
   '/api/boards',
 );
 
+// Set debug flag from first board's config
+if (boardData.value?.boards?.length) {
+  setDebugEnabled(boardData.value!.boards[0]!.debug ?? true);
+}
+
 const boards = computed(() => boardData.value?.boards ?? []);
 const loading = computed(() => status.value === 'pending');
 const registryError = computed(() => !!fetchError.value);
@@ -18,7 +26,10 @@ const serverStatus = computed<'restarting' | 'online' | 'offline'>(() => {
   return fetchError.value ? 'offline' : 'online';
 });
 
+debug('API fetch', fetchError.value ? 'FAILED' : `OK — ${boards.value.length} board(s)`);
+
 function connectToBoard(board: BoardPublicInfo) {
+  debug('Board selected:', board.name, board.host);
   selectedBoard.value = board;
   showConnection.value = true;
   showTerminal.value = false;

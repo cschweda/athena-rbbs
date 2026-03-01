@@ -127,6 +127,7 @@ export interface BoardPublicInfo {
   currentUsers: number;
   status: 'online' | 'offline';
   established: string;
+  debug?: boolean;
 }
 
 export interface BoardListResponse {

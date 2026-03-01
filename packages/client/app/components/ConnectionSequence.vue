@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { BoardPublicInfo, WSMessage } from '@athena/types';
 import { hostnameToNodeAddress } from '~/composables/useNodeAddress';
+import { useDebugLog } from '~/composables/useDebugLog';
+
+const { debug } = useDebugLog('Connection');
 
 const props = defineProps<{
   board: BoardPublicInfo;
@@ -39,7 +42,7 @@ onMounted(async () => {
 
     // Show status lines with delays
     for (let i = 0; i < statusMessages.length; i++) {
-      const line = statusMessages[i].replace('%NODE%', nodeAddress.value);
+      const line = statusMessages[i]!.replace('%NODE%', nodeAddress.value);
       statusLines.value.push(line);
       progress.value = ((i + 1) / statusMessages.length) * 80;
       await delay(400 + Math.random() * 200);
@@ -48,8 +51,10 @@ onMounted(async () => {
     // Actually connect WebSocket
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${props.board.host}${props.board.websocketPath}`;
+    debug('WebSocket URL:', wsUrl);
 
     const ws = await connectWebSocket(wsUrl);
+    debug('WebSocket connected');
     progress.value = 100;
 
     // Buffer all messages so Terminal can replay them
@@ -83,10 +88,12 @@ onMounted(async () => {
     ws.removeEventListener('message', messageHandler);
 
     // Store WS and buffered messages for Terminal to pick up
+    debug('Buffered messages:', messageBuffer.length);
     (window as any).__athena_ws = ws;
     (window as any).__athena_ws_buffer = messageBuffer;
     emit('connected');
   } catch (err) {
+    debug('Connection failed:', err);
     phase.value = 'failed';
     failMessage.value = 'NO CARRIER';
     setTimeout(() => emit('failed', 'error'), 2000);

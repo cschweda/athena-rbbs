@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { BoardPublicInfo, WSMessage } from '@athena/types';
+import { useDebugLog } from '~/composables/useDebugLog';
+
+const { debug } = useDebugLog('Terminal');
 
 const props = defineProps<{
   board: BoardPublicInfo;
@@ -38,10 +41,12 @@ onMounted(() => {
   delete (window as any).__athena_ws_buffer;
 
   if (!ws) {
+    debug('No WebSocket found, disconnecting');
     emit('disconnect');
     return;
   }
 
+  debug('WS pickup OK, buffered:', bufferedMessages.length);
   setupHandlers();
 
   // Replay any messages that arrived during the connection animation
@@ -80,6 +85,7 @@ function setupHandlers() {
   };
 
   ws.onclose = () => {
+    debug('WebSocket closed');
     appendText('\n\n  [Connection closed]\n');
     showInput.value = false;
     setTimeout(() => emit('disconnect'), 2000);
@@ -91,6 +97,7 @@ function setupHandlers() {
 }
 
 function handleMessage(msg: WSMessage) {
+  debug('←', msg.type);
   switch (msg.type) {
     case 'server.welcome': {
       const payload = msg.payload as { content: string };
@@ -118,6 +125,7 @@ function handleMessage(msg: WSMessage) {
     }
     case 'auth.result': {
       const payload = msg.payload as { success: boolean; handle?: string; token?: string };
+      debug('Auth result:', payload.success ? 'SUCCESS' : 'FAILED', payload.handle ?? '');
       if (payload.success) {
         reconnectToken = payload.token ?? null;
         sessionStart = Date.now();
@@ -218,6 +226,7 @@ function handleKeydown(e: KeyboardEvent) {
 function sendInput(text: string) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
+  debug('→ command.input');
   const msg: WSMessage = {
     type: 'command.input',
     payload: { text },

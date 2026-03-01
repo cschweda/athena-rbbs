@@ -9,7 +9,8 @@
     "theme": "pirate",
     "maxUsers": 10,
     "maxSessionMinutes": 30,
-    "sessionCooldownMinutes": 60
+    "sessionCooldownMinutes": 60,
+    "debug": true
   },
 
   "screens": {
