@@ -65,10 +65,13 @@ athena-rbbs/
 
 ## Prerequisites
 
-- **Node.js** >= 22
+- **Node.js** >= 22 (see `.nvmrc`)
 - **pnpm** >= 10
 
 ```bash
+# Use the correct Node version (if using nvm)
+nvm use
+
 # Install pnpm if you don't have it
 npm install -g pnpm
 ```
@@ -445,7 +448,13 @@ cd packages/client && pnpm build
 
 ### 4. Set environment variables
 
-Create `/home/forge/athena/.env`:
+Athena uses environment variables for all deployment-specific configuration: secrets (SysOp password), security settings (allowed origins, proxy trust), and host/port bindings. This keeps secrets out of the repository and lets the same codebase run identically in development and production — only the `.env` file changes.
+
+A `.env.example` file is included in the repo as a reference. Copy it and fill in your values:
+
+```bash
+cp .env.example /home/forge/athena/.env
+```
 
 **Engine (.env):**
 ```bash
@@ -468,11 +477,13 @@ ALLOWED_ORIGINS=https://athena-rbbs.net
 |----------|---------|----------|-------------|
 | `MODULE_PATH` | Engine, Server | Yes | Absolute path to the board module directory |
 | `SYSOP_HANDLE` | Engine | Yes | SysOp username (created on first boot) |
-| `SYSOP_PASSWORD` | Engine | Yes | SysOp password (bcrypt-hashed at startup) |
-| `ALLOWED_ORIGINS` | Engine, Server | Yes | Comma-separated origin allowlist for CORS + WebSocket |
-| `TRUST_PROXY` | Engine | Production | Set `true` behind nginx so rate limiting uses real client IPs |
-| `ENGINE_PORT` | Server | Yes | Port the engine runs on (for board directory API) |
-| `ENGINE_PUBLIC_HOST` | Server | Production | Public hostname for the engine (replaces `localhost` in board directory) |
+| `SYSOP_PASSWORD` | Engine | Yes | SysOp password (bcrypt-hashed at startup, never stored in plaintext) |
+| `ALLOWED_ORIGINS` | Engine, Server | Yes | Comma-separated origin allowlist for CORS + WebSocket. Rejects all connections from unlisted origins |
+| `TRUST_PROXY` | Engine | Production | Set `true` **only** when behind nginx/Forge. Tells the engine to read `X-Forwarded-For` for real client IPs — without this, all rate limiting sees the proxy's IP instead of the user's |
+| `ENGINE_PORT` | Server | Yes | Port the engine listens on (used by board directory API) |
+| `ENGINE_PUBLIC_HOST` | Server | Production | Public hostname for the engine (e.g., `golfsucks.athena-rbbs.net`). Without this, the board directory returns `localhost` which won't work for remote users |
+
+**Why `.env` is required for deployment:** In development, `scripts/dev.sh` sets all env vars automatically. In production on a DigitalOcean droplet, there is no dev script — PM2 reads from the ecosystem config or `.env` file. The SysOp password, allowed origins, and proxy trust settings are security-critical and must be configured per-environment. The `.env` file is gitignored so secrets never enter the repository.
 
 ### 5. Start with PM2
 
@@ -726,11 +737,11 @@ All messages are JSON: `{ type, payload, timestamp }`. Max 8KB.
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **1** | Scaffolding, WebSocket, auth, sessions, client directory + terminal | **Complete** |
-| **2** | Forums, mail, FOSS links, who's online, SysOp console, Supabase registry | Planned |
+| **1** | Scaffolding, WebSocket auth, sessions, security hardening, client directory + terminal, board.json source of truth, deployment docs | **Complete** |
+| **2** | Forums, mail, FOSS links, who's online, SysOp console | Planned |
 | **3** | ANSI rendering, System 7 window chrome, CRT effects, color schemes | Planned |
 | **4** | IRC-style chat, door games (trivia, hangman), Gopher browser, voting | Planned |
-| **5** | Production deployment, admin dashboard, provisioning workflow | Planned |
+| **5** | Production deployment, admin dashboard, board provisioning | Planned |
 | **6** | Web-based BBS Editor for creating modules through a GUI | Planned |
 
 ---
