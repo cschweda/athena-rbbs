@@ -43,8 +43,9 @@ export interface PeerData {
   lastActivity: number;
   timers: ReturnType<typeof setTimeout>[];
   reconnectToken: string | null;
+  sessionTimedOut: boolean;
   // Auth flow tracking
-  authStep: 'handle' | 'password' | 'register_handle' | 'register_password' | 'register_confirm';
+  authStep: 'handle' | 'password' | 'confirm_takeover' | 'register_handle' | 'register_password' | 'register_confirm';
   pendingHandle: string | null;
   pendingPassword: string | null;
 }

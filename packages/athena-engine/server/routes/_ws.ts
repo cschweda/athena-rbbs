@@ -14,6 +14,7 @@ import { initDatabase, getDb, getRawDb } from '../database/index';
 import { users } from '../database/schema';
 import type { PeerData, UserRecord, AreaName } from '../types';
 import { log } from '../utils/logger';
+import { setActivePeerCount } from '../utils/peers';
 import type { BoardConfig } from '../../config/schema';
 
 // ─── State ──────────────────────────────────────────────────────────────────
@@ -118,6 +119,14 @@ function bootstrapSysOp(): void {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+function updatePeerCount(): void {
+  let count = 0;
+  for (const p of peers.values()) {
+    if (p.state === 'authenticated') count++;
+  }
+  setActivePeerCount(count);
+}
+
 function generatePeerId(): string {
   return randomBytes(16).toString('hex');
 }
@@ -206,6 +215,15 @@ function countUnauthFromIP(ip: string): number {
   return count;
 }
 
+// ─── Active Session Lookup ───────────────────────────────────────────────────
+
+function findActiveSession(userId: number): PeerData | null {
+  for (const p of peers.values()) {
+    if (p.state === 'authenticated' && p.user?.id === userId) return p;
+  }
+  return null;
+}
+
 // ─── Ban Check ──────────────────────────────────────────────────────────────
 
 function checkBan(user: UserRecord): { banned: boolean; message?: string } {
@@ -250,7 +268,8 @@ function checkCooldown(user: UserRecord): { ok: boolean; minutesLeft?: number } 
   if (boardConfig.board.sessionCooldownMinutes === 0) return { ok: true };
   if (!user.last_session_end) return { ok: true };
 
-  const elapsed = (Date.now() - new Date(user.last_session_end).getTime()) / 60_000;
+  const timestamp = user.last_session_end.endsWith('Z') ? user.last_session_end : user.last_session_end + 'Z';
+  const elapsed = (Date.now() - new Date(timestamp).getTime()) / 60_000;
   const remaining = boardConfig.board.sessionCooldownMinutes - elapsed;
   if (remaining > 0) return { ok: false, minutesLeft: Math.ceil(remaining) };
   return { ok: true };
@@ -278,6 +297,7 @@ function startSessionTimer(peerData: PeerData): void {
 
   peerData.timers.push(
     setTimeout(() => {
+      peerData.sessionTimedOut = true;
       send(peerData, 'session.timeout', {});
       send(peerData, 'server.goodbye', { content: screens.goodbye });
       log('session.timeout', { handle: peerData.user?.handle, ip: peerData.ip });
@@ -329,6 +349,7 @@ function completeAuth(peerData: PeerData, user: UserRecord, isNewUser: boolean):
   peerData.user = user;
   peerData.sessionStartedAt = Date.now();
   peerData.reconnectToken = generateToken();
+  updatePeerCount();
 
   // Update user record
   getRawDb().prepare(
@@ -352,14 +373,28 @@ function completeAuth(peerData: PeerData, user: UserRecord, isNewUser: boolean):
     sendScreen(peerData, screens.newuser);
     sendScreen(peerData, '\n  Registration complete! Welcome aboard.\n');
   } else {
-    const lastLogin = user.last_login
-      ? new Date(user.last_login).toLocaleDateString('en-US', {
+    const lastLoginTs = user.last_login && !user.last_login.endsWith('Z') ? user.last_login + 'Z' : user.last_login;
+    const lastLogin = lastLoginTs
+      ? new Date(lastLoginTs).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
           year: 'numeric',
         })
       : 'never';
     sendScreen(peerData, `\n  Welcome back, ${user.handle}! Last login: ${lastLogin}.\n`);
+  }
+
+  // Show who's online
+  const onlineUsers: string[] = [];
+  for (const p of peers.values()) {
+    if (p.state === 'authenticated' && p.user && p.user.id !== user.id) {
+      onlineUsers.push(p.user.handle);
+    }
+  }
+  if (onlineUsers.length > 0) {
+    sendScreen(peerData, `\n  Online now: ${onlineUsers.join(', ')}\n`);
+  } else {
+    sendScreen(peerData, '\n  You are the only one online.\n');
   }
 
   // Start session timer
@@ -442,7 +477,40 @@ function handleAuthInput(peerData: PeerData, text: string): void {
         return;
       }
 
+      // Check for existing active session
+      const existingSession = findActiveSession(user.id);
+      if (existingSession) {
+        peerData.user = user;
+        peerData.authStep = 'confirm_takeover';
+        sendScreen(peerData, '\n  You are already signed in from another location.\n  Disconnect the other session and continue? (Y/N)\n');
+        sendPrompt(peerData, '> ');
+        return;
+      }
+
       completeAuth(peerData, user, false);
+      break;
+    }
+
+    case 'confirm_takeover': {
+      const answer = input.toUpperCase();
+      if (answer === 'Y') {
+        const oldSession = findActiveSession(peerData.user!.id);
+        if (oldSession) {
+          sendScreen(oldSession, '\n  Session taken over from another location. Goodbye.\n');
+          log('session.takeover', { handle: peerData.user!.handle, ip: peerData.ip, oldIp: oldSession.ip });
+          setTimeout(() => {
+            try { oldSession.peer.close(1000, 'Session takeover'); } catch { /* */ }
+          }, 500);
+        }
+        completeAuth(peerData, peerData.user!, false);
+      } else if (answer === 'N') {
+        peerData.user = null;
+        peerData.authStep = 'handle';
+        peerData.pendingHandle = null;
+        sendPrompt(peerData, 'Enter your handle (or NEW for a new account): ');
+      } else {
+        sendPrompt(peerData, '  Y or N: ');
+      }
       break;
     }
 
@@ -656,6 +724,7 @@ export default defineWebSocketHandler({
       lastActivity: Date.now(),
       timers: [],
       reconnectToken: null,
+      sessionTimedOut: false,
       authStep: 'handle',
       pendingHandle: null,
       pendingPassword: null,
@@ -788,11 +857,17 @@ export default defineWebSocketHandler({
     peerData.timers = [];
 
     if (peerData.state === 'authenticated' && peerData.user) {
-      // Record session end
+      // Record session end — only set last_session_end (cooldown trigger) if session timer expired
       const sessionMinutes = Math.floor((Date.now() - peerData.sessionStartedAt) / 60_000);
-      getRawDb().prepare(
-        'UPDATE users SET last_session_end = datetime(\'now\'), total_time_minutes = total_time_minutes + ? WHERE id = ?'
-      ).run(sessionMinutes, peerData.user.id);
+      if (peerData.sessionTimedOut) {
+        getRawDb().prepare(
+          'UPDATE users SET last_session_end = datetime(\'now\'), total_time_minutes = total_time_minutes + ? WHERE id = ?'
+        ).run(sessionMinutes, peerData.user.id);
+      } else {
+        getRawDb().prepare(
+          'UPDATE users SET total_time_minutes = total_time_minutes + ? WHERE id = ?'
+        ).run(sessionMinutes, peerData.user.id);
+      }
 
       // Update caller log
       getRawDb().prepare(
@@ -814,5 +889,6 @@ export default defineWebSocketHandler({
     }
 
     peers.delete(peerData.id);
+    updatePeerCount();
   },
 });

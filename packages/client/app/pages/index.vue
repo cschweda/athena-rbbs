@@ -9,7 +9,7 @@ const selectedBoard = ref<BoardPublicInfo | null>(null);
 const showConnection = ref(false);
 const showTerminal = ref(false);
 
-const { data: boardData, status, error: fetchError } = await useFetch<BoardListResponse>(
+const { data: boardData, status, error: fetchError, refresh } = await useFetch<BoardListResponse>(
   '/api/boards',
 );
 
@@ -17,6 +17,17 @@ const { data: boardData, status, error: fetchError } = await useFetch<BoardListR
 if (boardData.value?.boards?.length) {
   setDebugEnabled(boardData.value!.boards[0]!.debug ?? true);
 }
+
+// Poll for live user counts while directory is visible
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+onMounted(() => {
+  pollTimer = setInterval(() => {
+    if (!showTerminal.value && !showConnection.value) refresh();
+  }, 10_000);
+});
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
+});
 
 const boards = computed(() => boardData.value?.boards ?? []);
 const loading = computed(() => status.value === 'pending');
@@ -91,7 +102,7 @@ function onDisconnected() {
           </span>
         </div>
         <p class="text-gray-400 mt-2 font-mono text-sm">
-          Board Directory &mdash; Select a board to connect
+          Retro BBS (RBBS) Board Directory
         </p>
       </div>
 

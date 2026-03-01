@@ -10,6 +10,7 @@ export type LogEvent =
   | 'ws.error'
   | 'ws.oversized'
   | 'session.timeout'
+  | 'session.takeover'
   | 'sysop.action'
   | 'sysop.broadcast'
   | 'ban.sysop'

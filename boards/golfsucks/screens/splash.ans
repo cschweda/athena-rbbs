@@ -1,13 +1,14 @@
-    ⚓ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ⚓
-    ┃                                              ┃
-    ┃     ☠  G O L F   S U C K S  ☠               ┃
-    ┃        "{{board.tagline}}"                    ┃
-    ┃                                              ┃
-    ┃   ~~~/\___/\~~~~/\___/\~~~~                   ┃
-    ┃        \__|__/      \__|__/                   ┃
-    ┃   Sailing the digital seas since              ┃
-    ┃            March 2026                         ┃
-    ┃                                              ┃
-    ┃   Running Athena RBBS v1.0                    ┃
-    ┃   SysOp: {{board.sysop}} | Lines: {{board.maxUsers}}             ┃
-    ⚓ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ⚓
+⚓ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ⚓
+
+   ☠  G O L F   S U C K S  ☠
+      "{{board.tagline}}"
+
+   ~~~/\___/\~~~~/\___/\~~~~
+        \__|__/      \__|__/
+   Sailing the digital seas since
+            March 2026
+
+   Running Athena RBBS v1.0
+   SysOp: {{board.sysop}} | Lines: {{board.maxUsers}}
+
+⚓ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ⚓

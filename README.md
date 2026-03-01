@@ -198,7 +198,9 @@ The native dev launcher starts all three services, waits for them to be ready, r
 4. A WebSocket opens to the Engine (`ws://localhost:3001/_ws`)
 5. The pirate splash screen appears
 6. You register (type `NEW`) or login with the SysOp credentials
-7. The main menu shows with a session countdown timer
+7. If already logged in elsewhere, you're prompted to take over or cancel
+8. A "who's online" list shows other connected users
+9. The main menu appears
 
 ### Individual services
 
@@ -265,7 +267,9 @@ The BBS itself. Loads a board module (`board.json` + screens) at startup, create
 - WebSocket connections at `/_ws`
 - User registration and login (bcrypt cost 12, 256-bit session tokens)
 - Session time limits with warnings at 5/2/1 minutes
-- Session cooldown between visits
+- Single-session enforcement — duplicate login prompts to take over or cancel
+- Who's online display after login
+- Session cooldown between visits (only triggers on session timeout, not normal disconnect)
 - Reconnection within 60 seconds
 - Rate limiting (5 login attempts/min/IP, 10 connections/min/IP)
 - Ban enforcement (temp + permanent)
@@ -273,7 +277,7 @@ The BBS itself. Loads a board module (`board.json` + screens) at startup, create
 - Structured JSON logging for every event
 
 **Endpoints:**
-- `GET /api/health` — Service health check
+- `GET /api/health` — Service health check (includes `currentUsers` count)
 
 **Environment variables:**
 
@@ -291,12 +295,12 @@ The BBS itself. Loads a board module (`board.json` + screens) at startup, create
 The browser frontend. Modern graphical UI (Nuxt UI) for the board directory. Retro terminal mode for BBS sessions.
 
 **Pages:**
-- `/` — Board directory with cards showing name, tagline, SysOp, users, status, theme, and a generated node address
+- `/` — Board directory with cards showing name, tagline, SysOp, live user count, status, theme, and a generated node address (polls every 10s)
 
 **Components:**
 - `BoardDirectory` — Card grid, fetches from Server, caches in sessionStorage
 - `ConnectionSequence` — Three-phase animated panel (Connecting → Negotiating → Connected)
-- `Terminal` — Monospace display with hidden input, blinking cursor, session timer status bar, warning overlays
+- `Terminal` — Monospace display with hidden input, blinking cursor, warning overlays
 
 ---
 
@@ -445,7 +449,8 @@ All security hardening is built in from Phase 1:
 | Input validation | All lengths enforced server-side |
 | XSS prevention | All user text rendered via `textContent`, never `innerHTML` |
 | Ban system | Temp bans (1h-365d) + permanent, with reason display |
-| Session limits | Time limit + cooldown, SysOp exempt |
+| Single-session enforcement | Duplicate login prompts Y/N — old session only closed on confirmation |
+| Session limits | Time limit + cooldown (cooldown only on timeout, not normal disconnect), SysOp exempt |
 | JSON safety | All parsing in try/catch, unknown types silently ignored |
 | SQLite permissions | Database files set to 0600 (owner-only) |
 | WAL management | Auto-checkpoint and busy timeout configured |
@@ -872,7 +877,7 @@ All messages are JSON: `{ type, payload, timestamp }`. Max 8KB.
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **1** | Scaffolding, WebSocket auth, sessions, security hardening, client directory + terminal, board.json source of truth, deployment docs | **Complete** |
-| **2** | Forums, mail, FOSS links, who's online, SysOp console | Planned |
+| **2** | Forums, mail, FOSS links, SysOp console | Planned |
 | **3** | ANSI rendering, System 7 window chrome, CRT effects, color schemes | Planned |
 | **4** | IRC-style chat, door games (trivia, hangman), Gopher browser, voting | Planned |
 | **5** | Production deployment, admin dashboard, board provisioning | Planned |

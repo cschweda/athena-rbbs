@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+/* Hide scrollbar globally — terminal uses natural page scroll */
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+}
