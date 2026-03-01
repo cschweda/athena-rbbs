@@ -387,26 +387,33 @@ All security hardening is built in from Phase 1:
 
 ## Production Deployment (DigitalOcean + Laravel Forge)
 
-Each board runs on its own DigitalOcean droplet managed by [Laravel Forge](https://forge.laravel.com). The Athena Server runs on a separate droplet. Forge handles server provisioning, nginx configuration, SSL (Let's Encrypt), and deployment.
+Everything runs on a **single DigitalOcean droplet** managed by [Laravel Forge](https://forge.laravel.com). All three services (client, server, engine) run as PM2 processes on different ports. Nginx reverse-proxies each subdomain to the correct port. Forge handles server provisioning, nginx configuration, SSL (Let's Encrypt), and deployment.
 
 ### Overview
 
 ```
-Forge manages:
-  ├── athena-rbbs.net (Server)        → DigitalOcean droplet
-  │   └── Site: athena-rbbs.net       → reverse proxy → localhost:3000
-  │
-  ├── golfsucks.athena-rbbs.net       → DigitalOcean droplet
-  │   └── Site: golfsucks.athena-rbbs.net → reverse proxy → localhost:3001
-  │
-  └── (more boards, each on its own droplet or sharing one)
+Single DigitalOcean droplet ($6-12/mo)
+│
+├── nginx (managed by Forge)
+│   ├── athena-rbbs.net               → localhost:3002 (client)
+│   ├── api.athena-rbbs.net           → localhost:3000 (server/registry)
+│   └── golfsucks.athena-rbbs.net     → localhost:3001 (engine, WebSocket)
+│
+├── PM2 process manager
+│   ├── athena-client   (port 3002)   ~50MB RAM
+│   ├── athena-server   (port 3000)   ~50MB RAM
+│   └── athena-engine   (port 3001)   ~60MB RAM
+│
+└── boards/golfsucks/data/board.db    (SQLite, per-board)
 ```
+
+Each Nitro server uses ~50-80MB RAM. A **$6/mo droplet** (1 vCPU, 1GB RAM, Ubuntu 24.04) comfortably runs all three services plus 2-3 boards. Move to a **$12/mo droplet** (2GB RAM) if you're running 4+ boards or expect sustained WebSocket traffic.
 
 ### 1. Create a server in Forge
 
 1. Log into [forge.laravel.com](https://forge.laravel.com)
 2. **Create Server** → select DigitalOcean as the provider
-3. Pick the **$6/mo droplet** (1 vCPU, 1GB RAM, Ubuntu 24.04)
+3. Pick the **$6/mo droplet** (1 vCPU, 1GB RAM, Ubuntu 24.04) — upgrade to $12/mo for multiple boards
 4. Server type: **Web Server (Nginx)**
 5. Forge provisions the server with nginx, firewall, and SSH keys automatically
 
@@ -623,28 +630,15 @@ location / {
 
 Forge handles certificate provisioning and automatic renewal. No certbot, no cron jobs.
 
-### 8. Multiple boards on one server
+### 8. Adding more boards (same droplet)
 
-For smaller deployments, run multiple boards on a single Forge server:
+Each additional board is just another PM2 process on a new port and a new Forge site. The same engine codebase powers every board — only the `MODULE_PATH` and port differ.
 
-1. Create one Forge server
-2. Add multiple sites (one per board subdomain)
-3. Add entries to `ecosystem.config.cjs`:
+1. Create the board module: `cp -r boards/_template boards/starport`
+2. Edit `boards/starport/board.json`
+3. Add a new entry to `ecosystem.config.cjs`:
 
 ```javascript
-{
-  name: 'golfsucks',
-  cwd: '/home/forge/athena/packages/athena-engine',
-  script: '.output/server/index.mjs',
-  env: {
-    PORT: 3001,
-    MODULE_PATH: '/home/forge/athena/boards/golfsucks',
-    SYSOP_HANDLE: 'ChrisR',
-    SYSOP_PASSWORD: '<password>',
-    ALLOWED_ORIGINS: 'https://athena-rbbs.net',
-    TRUST_PROXY: 'true',
-  },
-},
 {
   name: 'starport',
   cwd: '/home/forge/athena/packages/athena-engine',
@@ -660,7 +654,11 @@ For smaller deployments, run multiple boards on a single Forge server:
 },
 ```
 
-Point each site's nginx config to the correct port.
+4. In Forge, add a new site for `starport.athena-rbbs.net` with the engine nginx config pointing to port 3003
+5. Enable SSL for the new site
+6. `pm2 start ecosystem.config.cjs && pm2 save`
+
+Each board adds ~60MB RAM. A $6 droplet handles 3-4 boards; upgrade to $12 for more.
 
 ### 9. Forge deployment script
 
