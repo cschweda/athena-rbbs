@@ -125,7 +125,41 @@ export VPS_HOST=root@your-vps-ip    # or set in your shell profile
 pnpm dev
 ```
 
-The script backs up your local database before overwriting, so you can always revert. Code deploys (`git pull` + rebuild) never touch the production database — schema and data are decoupled.
+The script backs up your local database before overwriting, so you can always revert.
+
+### Dev → Production deploy workflow
+
+Development uses `pnpm dev` locally. Production runs Docker on your VPS. They are completely independent — you can switch between them freely and the production database is never at risk during deploys.
+
+```
+Local (dev)                          VPS (prod)
+───────────                          ──────────
+1. pnpm dev                          Docker containers running
+2. Make code changes                 SQLite database has live user data
+3. git commit && git push
+                          ──────→   4. ssh into VPS
+                                    5. cd /opt/athena-rbbs && git pull
+                                    6. docker compose build
+                                    7. docker compose up -d
+```
+
+**Why the database is safe:**
+
+- `git pull` (step 5) only updates code. The database is git-ignored, so git never touches it.
+- `docker compose build` (step 6) rebuilds the code image. The database isn't inside the image.
+- `docker compose up -d` (step 7) restarts containers. The database lives on the host filesystem via a bind mount (`./boards:/data/boards`), so it persists across container restarts.
+
+**Quick deploy (after initial setup):**
+
+```bash
+# From your local machine:
+ssh root@your-vps "cd /opt/athena-rbbs && git pull && docker compose build && docker compose up -d"
+```
+
+**What would delete the database** (avoid these):
+- `rm boards/golfsucks/data/board.db` on the VPS
+- `docker compose down -v` (the `-v` flag removes volumes — don't use it)
+- Deleting the entire `boards/` directory on the VPS
 
 ---
 
