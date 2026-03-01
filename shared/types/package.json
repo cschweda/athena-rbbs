@@ -1,0 +1,13 @@
+{
+  "name": "@athena/types",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./protocol": "./protocol.ts",
+    "./validation": "./validation.ts"
+  }
+}

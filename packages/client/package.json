@@ -1,0 +1,21 @@
+{
+  "name": "athena-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 3002",
+    "build": "nuxt build",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@athena/types": "workspace:*",
+    "@nuxt/ui": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "nuxt": "^4.3.1",
+    "typescript": "^5.7.3"
+  }
+}

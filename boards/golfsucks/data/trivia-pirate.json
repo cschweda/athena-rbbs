@@ -1,0 +1,104 @@
+{
+  "questions": [
+    {
+      "question": "What was Blackbeard's real name?",
+      "choices": ["Edward Teach", "Henry Morgan", "Jack Rackham", "Bartholomew Roberts"],
+      "answer": 0
+    },
+    {
+      "question": "What year did the Golden Age of Piracy begin?",
+      "choices": ["1620", "1650", "1700", "1720"],
+      "answer": 1
+    },
+    {
+      "question": "Which pirate was known as 'Black Bart'?",
+      "choices": ["Edward Teach", "Bartholomew Roberts", "Henry Morgan", "Calico Jack"],
+      "answer": 1
+    },
+    {
+      "question": "What was the name of Blackbeard's ship?",
+      "choices": ["The Black Pearl", "Queen Anne's Revenge", "The Jolly Roger", "The Flying Dutchman"],
+      "answer": 1
+    },
+    {
+      "question": "Which female pirate sailed with Calico Jack?",
+      "choices": ["Mary Read", "Grace O'Malley", "Anne Bonny", "Ching Shih"],
+      "answer": 2
+    },
+    {
+      "question": "What does 'Jolly Roger' refer to?",
+      "choices": ["A pirate captain", "The pirate flag", "A type of ship", "A port city"],
+      "answer": 1
+    },
+    {
+      "question": "Which sea was most associated with the Golden Age of Piracy?",
+      "choices": ["Mediterranean", "South China Sea", "Caribbean", "North Sea"],
+      "answer": 2
+    },
+    {
+      "question": "What was a 'Letter of Marque'?",
+      "choices": ["A treasure map", "A license to attack enemy ships", "A pirate code", "A death sentence"],
+      "answer": 1
+    },
+    {
+      "question": "Who was the most successful pirate in history by ships captured?",
+      "choices": ["Blackbeard", "Bartholomew Roberts", "Henry Morgan", "Francis Drake"],
+      "answer": 1
+    },
+    {
+      "question": "What is 'keelhauling'?",
+      "choices": ["Steering a ship", "A punishment dragging someone under the ship", "Cleaning the deck", "Raising the anchor"],
+      "answer": 1
+    },
+    {
+      "question": "Which pirate was also a knight?",
+      "choices": ["Blackbeard", "Henry Morgan", "Francis Drake", "Calico Jack"],
+      "answer": 2
+    },
+    {
+      "question": "What did pirates call their shared treasure rules?",
+      "choices": ["The Pirate Code", "Articles of Agreement", "The Black Spot", "Sea Law"],
+      "answer": 1
+    },
+    {
+      "question": "Which city was known as the 'Pirate Republic'?",
+      "choices": ["Havana", "Nassau", "Port Royal", "Tortuga"],
+      "answer": 1
+    },
+    {
+      "question": "What did 'walking the plank' actually involve?",
+      "choices": ["A balance game", "Forced overboard on a board", "Ship repair", "It was mostly fictional"],
+      "answer": 3
+    },
+    {
+      "question": "Who was the 'Pirate Queen' of China?",
+      "choices": ["Anne Bonny", "Mary Read", "Ching Shih", "Grace O'Malley"],
+      "answer": 2
+    },
+    {
+      "question": "What type of ship did pirates prefer?",
+      "choices": ["Galleon", "Sloop", "Frigate", "Man-of-war"],
+      "answer": 1
+    },
+    {
+      "question": "What island served as a major pirate haven in the Caribbean?",
+      "choices": ["Cuba", "Jamaica", "Tortuga", "Bermuda"],
+      "answer": 2
+    },
+    {
+      "question": "What was 'grog' made of?",
+      "choices": ["Beer and lime", "Rum and water", "Wine and spices", "Whiskey and honey"],
+      "answer": 1
+    },
+    {
+      "question": "In what year was Blackbeard killed?",
+      "choices": ["1710", "1715", "1718", "1722"],
+      "answer": 2
+    },
+    {
+      "question": "What does 'scuttling' a ship mean?",
+      "choices": ["Painting it", "Deliberately sinking it", "Repairing it", "Steering it"],
+      "answer": 1
+    }
+  ]
+}

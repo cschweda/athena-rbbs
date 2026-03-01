@@ -1,0 +1,38 @@
+{
+  "$schema": "https://athena-rbbs.net/schemas/board.v1.json",
+  "version": "1.0.0",
+
+  "board": {
+    "name": "My Board",
+    "tagline": "A new RBBS on the Athena network",
+    "sysop": "SysOp",
+    "theme": "",
+    "maxUsers": 10,
+    "maxSessionMinutes": 30,
+    "sessionCooldownMinutes": 60
+  },
+
+  "screens": {
+    "splash": "screens/splash.ans",
+    "goodbye": "screens/goodbye.ans",
+    "newuser": "screens/newuser.ans",
+    "menu": "screens/menu.ans"
+  },
+
+  "forums": [
+    { "name": "General", "description": "General discussion", "accessLevel": 0 }
+  ],
+
+  "games": {
+    "builtin": ["trivia", "hangman"],
+    "custom": []
+  },
+
+  "gopher": {
+    "enabled": false
+  },
+
+  "foss": {
+    "categories": []
+  }
+}

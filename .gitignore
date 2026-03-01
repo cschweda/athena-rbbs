@@ -1,0 +1,25 @@
+# Environment & secrets
+.env
+.env.*
+
+# Runtime databases (contain user data + hashed passwords)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+boards/*/data/*.db
+boards/*/data/*.db-*
+
+# Build output
+.output/
+.nuxt/
+node_modules/
+dist/
+
+# Process manager
+.pm2/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

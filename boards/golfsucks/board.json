@@ -1,0 +1,70 @@
+{
+  "$schema": "https://athena-rbbs.net/schemas/board.v1.json",
+  "version": "1.0.0",
+
+  "board": {
+    "name": "Golf Sucks",
+    "tagline": "Abandon all bogeys",
+    "sysop": "ChrisR",
+    "theme": "pirate",
+    "maxUsers": 10,
+    "maxSessionMinutes": 30,
+    "sessionCooldownMinutes": 60
+  },
+
+  "screens": {
+    "splash": "screens/splash.ans",
+    "goodbye": "screens/goodbye.ans",
+    "newuser": "screens/newuser.ans",
+    "menu": "screens/menu.ans"
+  },
+
+  "forums": [
+    { "name": "Treasure Hunts", "description": "Adventures, riddles, and loot", "accessLevel": 0 },
+    { "name": "Tall Tales", "description": "Stories from the high seas", "accessLevel": 0 },
+    { "name": "The Brig", "description": "Complaints and grievances", "accessLevel": 0 },
+    { "name": "Crew Only", "description": "For validated members", "accessLevel": 2 }
+  ],
+
+  "games": {
+    "builtin": ["trivia", "hangman"],
+    "custom": [],
+    "data": {
+      "trivia": "data/trivia-pirate.json"
+    }
+  },
+
+  "gopher": {
+    "enabled": true,
+    "maxDepth": 5,
+    "rateLimit": 10,
+    "fetchTimeout": 10000,
+    "maxPageSize": 1048576,
+    "homeLinks": [
+      { "label": "Search the Web", "url": "https://www.google.com/search", "type": "search" },
+      { "label": "Hacker News", "url": "https://news.ycombinator.com", "type": "menu" },
+      { "label": "Pirate History", "url": "https://en.wikipedia.org/wiki/Golden_Age_of_Piracy", "type": "article" },
+      { "label": "Treasure Island (Full Text)", "url": "https://www.gutenberg.org/files/120/120-h/120-h.htm", "type": "article" },
+      { "label": "SysOp's Picks", "type": "submenu", "links": [
+        { "label": "Classic Pirate Ships", "url": "https://en.wikipedia.org/wiki/List_of_historical_ships", "type": "article" },
+        { "label": "GitHub Trending", "url": "https://github.com/trending", "type": "menu" }
+      ]}
+    ],
+    "blockedDomains": ["localhost", "127.0.0.1"]
+  },
+
+  "foss": {
+    "categories": [
+      {
+        "name": "Pirate Tools",
+        "description": "Plundering the open source seas",
+        "links": []
+      },
+      {
+        "name": "Retro Computing",
+        "description": "Old machines, new tricks",
+        "links": []
+      }
+    ]
+  }
+}

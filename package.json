@@ -1,0 +1,28 @@
+{
+  "name": "athena-rbbs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "./scripts/dev.sh",
+    "dev:engine": "pnpm --filter athena-engine dev",
+    "dev:server": "pnpm --filter athena-server dev",
+    "dev:client": "pnpm --filter athena-client dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "bcrypt",
+      "better-sqlite3",
+      "esbuild",
+      "@parcel/watcher",
+      "vue-demi"
+    ]
+  },
+  "devDependencies": {
+    "kill-port": "^2.0.1"
+  }
+}

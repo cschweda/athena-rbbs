@@ -1,0 +1,3 @@
+# Runtime databases are never committed — created on first boot
+*/data/*.db
+*/data/*.db-*
