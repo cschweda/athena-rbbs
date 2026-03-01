@@ -80,6 +80,17 @@ npm install -g pnpm
 
 ## Quick Start (Development)
 
+There are two ways to run Athena locally: **native** (pnpm) or **Docker**. Native is recommended for active development — it's faster to start, supports hot reload, and doesn't require rebuilding on every change. Docker is better for testing the production build or running without installing Node.js/pnpm.
+
+| | Native (pnpm) | Docker |
+|---|---|---|
+| **Setup** | Requires Node.js 22 + pnpm | Requires Docker Desktop |
+| **Start time** | ~5 seconds | ~30 seconds (first build ~60s) |
+| **Hot reload** | Yes — edit code, see changes instantly | No — must rebuild on every change |
+| **Best for** | Active development, debugging | Testing production builds, CI, quick demos |
+
+### Option A: Native (recommended for development)
+
 ```bash
 # Clone and install
 git clone <repo-url> athena-rbbs
@@ -90,7 +101,21 @@ pnpm install
 pnpm dev
 ```
 
-The dev launcher starts all three services, waits for them to be ready, runs a handshake check to verify they can communicate, then prints a dashboard:
+### Option B: Docker
+
+```bash
+git clone <repo-url> athena-rbbs
+cd athena-rbbs
+cp .env.example .env    # edit SYSOP_HANDLE and SYSOP_PASSWORD
+
+docker compose up -d    # build + start (first run builds the image)
+```
+
+Open http://localhost:3002 in your browser. To stop: `docker compose down`. To rebuild after code changes: `docker compose build && docker compose up -d`.
+
+---
+
+The native dev launcher starts all three services, waits for them to be ready, runs a handshake check to verify they can communicate, then prints a dashboard:
 
 ```
   ✓ All systems go!
@@ -702,9 +727,9 @@ pm2 flush                      # Clear log files
 
 ---
 
-## Docker Deployment
+## Docker Deployment (Production)
 
-Two Docker Compose configurations are provided — choose the one that fits your setup.
+For local development, see [Quick Start](#quick-start-development) above. The Docker configurations below are for **production deployment** on a VPS.
 
 ### Option A: Forge-compatible (`docker-compose.yml`)
 
