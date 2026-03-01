@@ -1,0 +1,66 @@
+# Forge-compatible: just the three Node.js services.
+# Forge (or your own nginx) reverse-proxies to these ports.
+#
+# Usage:
+#   cp .env.example .env   # fill in values
+#   docker compose up -d
+
+services:
+  athena-server:
+    build: .
+    command: ["node", "packages/athena-server/.output/server/index.mjs"]
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      MODULE_PATH: /data/boards/golfsucks
+      ENGINE_PORT: 3001
+      ENGINE_PUBLIC_HOST: ${ENGINE_PUBLIC_HOST:-localhost:3001}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3002}
+    volumes:
+      - ./boards:/data/boards:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)throw 1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  athena-engine:
+    build: .
+    command: ["node", "packages/athena-engine/.output/server/index.mjs"]
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      MODULE_PATH: /data/boards/golfsucks
+      SYSOP_HANDLE: ${SYSOP_HANDLE:?Set SYSOP_HANDLE in .env}
+      SYSOP_PASSWORD: ${SYSOP_PASSWORD:?Set SYSOP_PASSWORD in .env}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3002}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    volumes:
+      - ./boards:/data/boards
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>{if(!r.ok)throw 1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  athena-client:
+    build: .
+    command: ["node", "packages/client/.output/server/index.mjs"]
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      NUXT_PUBLIC_SERVER_URL: ${NUXT_PUBLIC_SERVER_URL:-http://localhost:3000}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/').then(r=>{if(!r.ok)throw 1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

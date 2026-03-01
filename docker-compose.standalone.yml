@@ -1,0 +1,106 @@
+# All-in-one: services + nginx reverse proxy.
+# For provisioning a raw droplet — `docker compose up` and done.
+#
+# Usage:
+#   cp .env.example .env   # fill in values
+#   docker compose -f docker-compose.standalone.yml up -d
+#
+# For SSL, see docker/nginx.conf comments.
+
+services:
+  athena-server:
+    build: .
+    command: ["node", "packages/athena-server/.output/server/index.mjs"]
+    environment:
+      PORT: 3000
+      MODULE_PATH: /data/boards/golfsucks
+      ENGINE_PORT: 3001
+      ENGINE_PUBLIC_HOST: ${ENGINE_PUBLIC_HOST:-localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+    volumes:
+      - ./boards:/data/boards:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)throw 1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - athena
+
+  athena-engine:
+    build: .
+    command: ["node", "packages/athena-engine/.output/server/index.mjs"]
+    environment:
+      PORT: 3001
+      MODULE_PATH: /data/boards/golfsucks
+      SYSOP_HANDLE: ${SYSOP_HANDLE:?Set SYSOP_HANDLE in .env}
+      SYSOP_PASSWORD: ${SYSOP_PASSWORD:?Set SYSOP_PASSWORD in .env}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      TRUST_PROXY: "true"
+    volumes:
+      - ./boards:/data/boards
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>{if(!r.ok)throw 1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - athena
+
+  athena-client:
+    build: .
+    command: ["node", "packages/client/.output/server/index.mjs"]
+    environment:
+      PORT: 3002
+      NUXT_PUBLIC_SERVER_URL: ${NUXT_PUBLIC_SERVER_URL:-http://localhost}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/').then(r=>{if(!r.ok)throw 1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - athena
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    depends_on:
+      athena-server:
+        condition: service_healthy
+      athena-engine:
+        condition: service_healthy
+      athena-client:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - athena
+
+  # Uncomment to enable automatic SSL certificate provisioning:
+  # certbot:
+  #   image: certbot/certbot
+  #   volumes:
+  #     - certbot-www:/var/www/certbot
+  #     - certbot-certs:/etc/letsencrypt
+  #   # Run once to obtain certs, then set up a cron or use --keep-until-expiring:
+  #   # docker compose -f docker-compose.standalone.yml run certbot \
+  #   #   certonly --webroot -w /var/www/certbot \
+  #   #   -d athena-rbbs.net -d api.athena-rbbs.net -d golfsucks.athena-rbbs.net
+
+networks:
+  athena:
+
+volumes:
+  certbot-www:
+  certbot-certs:

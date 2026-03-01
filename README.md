@@ -702,6 +702,73 @@ pm2 flush                      # Clear log files
 
 ---
 
+## Docker Deployment
+
+Two Docker Compose configurations are provided — choose the one that fits your setup.
+
+### Option A: Forge-compatible (`docker-compose.yml`)
+
+Use this when deploying to a droplet managed by **Laravel Forge** (or any setup where you already have nginx). Docker runs the three Node.js services; Forge handles nginx, SSL, and process management.
+
+```bash
+cp .env.example .env    # fill in SYSOP_HANDLE, SYSOP_PASSWORD, etc.
+docker compose up -d
+```
+
+Services are exposed to the host on ports 3000/3001/3002. Configure Forge's nginx to reverse-proxy to these ports (see the [nginx config examples](#6-create-sites-in-forge-nginx-reverse-proxy) above).
+
+### Option B: Standalone (`docker-compose.standalone.yml`)
+
+Use this for a **raw droplet** with nothing installed except Docker. Includes an nginx reverse proxy — `docker compose up` and done.
+
+```bash
+cp .env.example .env    # fill in values
+docker compose -f docker-compose.standalone.yml up -d
+```
+
+Only ports 80 and 443 are exposed. The nginx config (`docker/nginx.conf`) uses path-based routing by default:
+
+| Path | Service |
+|------|---------|
+| `/` | Client (browser UI) |
+| `/api/` | Athena Server (board registry) |
+| `/_ws` | Athena Engine (WebSocket BBS) |
+| `/engine/` | Engine API (health checks) |
+
+For production with SSL and subdomains, uncomment the HTTPS blocks in `docker/nginx.conf` and provision certificates with the certbot sidecar:
+
+```bash
+docker compose -f docker-compose.standalone.yml run certbot \
+  certonly --webroot -w /var/www/certbot \
+  -d athena-rbbs.net -d api.athena-rbbs.net -d golfsucks.athena-rbbs.net
+```
+
+Then uncomment the HTTPS server blocks and change the HTTP block to redirect.
+
+### Docker environment variables
+
+All environment variables from the [Forge deployment section](#4-set-environment-variables) apply. Key additions for Docker:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NUXT_PUBLIC_SERVER_URL` | `http://localhost:3000` | URL the client uses to reach the server API |
+| `ENGINE_PUBLIC_HOST` | `localhost:3001` | Public hostname returned in board directory |
+
+### Board data persistence
+
+The `boards/` directory is bind-mounted into the containers. SQLite databases (`boards/*/data/board.db`) persist across container restarts. Board configs and screens are read from the same mount.
+
+### Building the image
+
+```bash
+docker compose build          # builds the multi-stage image
+docker compose up -d          # starts services
+docker compose logs -f        # stream all logs
+docker compose down           # stop everything
+```
+
+---
+
 ## WebSocket Protocol
 
 All messages are JSON: `{ type, payload, timestamp }`. Max 8KB.
